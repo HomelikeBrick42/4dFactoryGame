@@ -10,6 +10,8 @@ struct Camera
     float4 forward;
     float4 up;
     float4 right;
+    int3 hovered_tile;
+    uint is_hovering;
     float fov;
 }
 
@@ -37,7 +39,11 @@ void trace_rays(uint3 global_index: SV_DispatchThreadID)
 
     var color = skybox(ray.direction);
 
-    let ground = hit_ground(ray);
+    var hovered_tile: Optional<int3> = camera.hovered_tile;
+    if (camera.is_hovering == 0)
+        hovered_tile = none;
+
+    let ground = hit_ground(ray, hovered_tile);
     if (ground.hasValue)
         color = ground.value;
 

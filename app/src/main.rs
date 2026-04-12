@@ -1,5 +1,5 @@
 use crate::camera::Camera;
-use math::{NoE2Rotor, Vector2, Vector4};
+use math::{NoE2Rotor, Vector2, Vector3, Vector4};
 use renderer::{
     app::{App, InputState, run_app},
     ray_tracing::Renderer,
@@ -16,6 +16,7 @@ pub struct Game {
     queue: wgpu::Queue,
 
     camera: Camera,
+    selected_tile: Option<Vector3<i32>>,
 
     ui: ui::Renderer,
     renderer: Renderer,
@@ -45,7 +46,7 @@ impl App for Game {
         };
 
         let ui = ui::Renderer::new(device.clone(), queue.clone());
-        let renderer = Renderer::new(device.clone(), queue.clone(), &camera.to_gpu());
+        let renderer = Renderer::new(device.clone(), queue.clone(), camera.to_gpu(None));
         let main_texture = Texture::new(
             &device,
             1,
@@ -58,6 +59,7 @@ impl App for Game {
             queue,
 
             camera,
+            selected_tile: None,
 
             ui,
             renderer,
@@ -67,8 +69,24 @@ impl App for Game {
 
     fn fixed_update(&mut self, #[expect(unused)] ts: f32) {}
 
-    fn update(&mut self, input_state: &InputState, dt: f32) {
+    fn update(&mut self, width: u32, height: u32, input_state: &InputState, dt: f32) {
         self.camera.update(input_state, dt);
+
+        let ray = self
+            .camera
+            .get_ray(input_state.mouse_position(), width, height);
+        let distance = ray.origin.y / -ray.direction.y;
+        self.selected_tile = if distance > 0.0 {
+            let point = ray.origin + ray.direction * distance;
+            let tile = Vector3 {
+                x: point.x.floor() as i32,
+                y: point.z.floor() as i32,
+                z: point.w.floor() as i32,
+            };
+            Some(tile)
+        } else {
+            None
+        };
     }
 
     fn render<'a>(
@@ -85,7 +103,8 @@ impl App for Game {
                 wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::TEXTURE_BINDING,
             );
         }
-        self.renderer.set_camera(&self.camera.to_gpu());
+        self.renderer
+            .set_camera(self.camera.to_gpu(self.selected_tile));
         self.renderer.render(&mut self.main_texture, encoder);
 
         let aspect = width as f32 / height as f32;

@@ -1,4 +1,4 @@
-use math::{NoE2Rotor, Rotor, Vector4};
+use math::{NoE2Rotor, Rotor, Vector2, Vector3, Vector4};
 use renderer::{
     app::{InputState, KeyCode},
     ray_tracing,
@@ -92,14 +92,38 @@ impl Camera {
         Rotor::from_no_e2_rotor(self.base_rotation).then(Rotor::rotate_xy(self.xy_rotation))
     }
 
-    pub fn to_gpu(&self) -> ray_tracing::Camera {
+    pub fn get_ray(&self, mouse_position: Vector2<f32>, width: u32, height: u32) -> Ray {
+        let aspect = width as f32 / height as f32;
+        let mut uv = Vector2 {
+            x: (mouse_position.x + 0.5) / width as f32,
+            y: (mouse_position.y + 0.5) / height as f32,
+        } * 2.0
+            - 1.0;
+        uv *= f32::tan(self.fov * 0.5);
+        uv.x *= aspect;
+        uv.y *= -1.0;
+
+        let rotation = self.rotation();
+        Ray {
+            origin: self.position,
+            direction: (rotation.x() + rotation.y() * uv.y + rotation.z() * uv.x).normalised(),
+        }
+    }
+
+    pub fn to_gpu(&self, hovered_tile: Option<Vector3<i32>>) -> ray_tracing::Camera {
         let rotation = self.rotation();
         ray_tracing::Camera {
             position: self.position,
             forward: rotation.x(),
             up: rotation.y(),
             right: rotation.z(),
+            hovered_tile,
             fov: self.fov,
         }
     }
+}
+
+pub struct Ray {
+    pub origin: Vector4<f32>,
+    pub direction: Vector4<f32>,
 }

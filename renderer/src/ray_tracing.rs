@@ -1,16 +1,51 @@
 use crate::texture::{Texture, write_storage_bind_group_layout};
 use bytemuck::NoUninit;
-use math::Vector4;
+use math::{Vector3, Vector4};
 use wgpu::util::DeviceExt;
 
-#[derive(Debug, Clone, Copy, NoUninit)]
-#[repr(C)]
+#[derive(Debug, Clone, Copy)]
 pub struct Camera {
     pub position: Vector4<f32>,
     pub forward: Vector4<f32>,
     pub up: Vector4<f32>,
     pub right: Vector4<f32>,
     pub fov: f32,
+    pub hovered_tile: Option<Vector3<i32>>,
+}
+
+#[derive(Debug, Clone, Copy, NoUninit)]
+#[repr(C)]
+struct GpuCamera {
+    position: Vector4<f32>,
+    forward: Vector4<f32>,
+    up: Vector4<f32>,
+    right: Vector4<f32>,
+    hovered_tile: Vector3<i32>,
+    is_hovering: u32,
+    fov: f32,
+}
+
+impl From<Camera> for GpuCamera {
+    fn from(
+        Camera {
+            position,
+            forward,
+            up,
+            right,
+            fov,
+            hovered_tile,
+        }: Camera,
+    ) -> Self {
+        Self {
+            position,
+            forward,
+            up,
+            right,
+            hovered_tile: hovered_tile.unwrap_or(Vector3 { x: 0, y: 0, z: 0 }),
+            is_hovering: hovered_tile.is_some() as _,
+            fov,
+        }
+    }
 }
 
 pub struct Renderer {
@@ -25,12 +60,13 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    pub fn new(device: wgpu::Device, queue: wgpu::Queue, camera: &Camera) -> Self {
+    pub fn new(device: wgpu::Device, queue: wgpu::Queue, camera: Camera) -> Self {
         let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Camera Buffer"),
             contents: &{
-                let mut bytes = [0; size_of::<Camera>().next_multiple_of(16)];
-                bytes[..size_of::<Camera>()].copy_from_slice(bytemuck::bytes_of(camera));
+                let mut bytes = [0; size_of::<GpuCamera>().next_multiple_of(16)];
+                bytes[..size_of::<GpuCamera>()]
+                    .copy_from_slice(bytemuck::bytes_of(&GpuCamera::from(camera)));
                 bytes
             },
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
@@ -92,9 +128,12 @@ impl Renderer {
         }
     }
 
-    pub fn set_camera(&mut self, camera: &Camera) {
-        self.queue
-            .write_buffer(&self.camera_buffer, 0, bytemuck::bytes_of(camera));
+    pub fn set_camera(&mut self, camera: Camera) {
+        self.queue.write_buffer(
+            &self.camera_buffer,
+            0,
+            bytemuck::bytes_of(&GpuCamera::from(camera)),
+        );
     }
 
     pub fn render(&mut self, texture: &mut Texture, encoder: &mut wgpu::CommandEncoder) {

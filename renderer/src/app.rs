@@ -25,7 +25,13 @@ pub trait App {
     fn new(device: wgpu::Device, queue: wgpu::Queue) -> Self;
 
     fn fixed_update(&mut self, #[expect(unused)] ts: f32);
-    fn update(&mut self, #[expect(unused)] input_state: &InputState, #[expect(unused)] dt: f32);
+    fn update(
+        &mut self,
+        #[expect(unused)] width: u32,
+        #[expect(unused)] height: u32,
+        #[expect(unused)] input_state: &InputState,
+        #[expect(unused)] dt: f32,
+    );
 
     fn render<'a>(
         &'a mut self,
@@ -253,7 +259,17 @@ impl<A: App> ApplicationHandler for AppState<A> {
             self.fixed_time = Duration::ZERO;
         }
 
-        self.app.update(&self.input_state, self.dt.as_secs_f32());
+        let (width, height) = self
+            .window_state
+            .as_ref()
+            .map(|window| {
+                let size = window.window.inner_size();
+                (size.width.max(1), size.height.max(1))
+            })
+            .unwrap_or((1, 1));
+        self.app
+            .update(width, height, &self.input_state, self.dt.as_secs_f32());
+
         self.render();
     }
 }

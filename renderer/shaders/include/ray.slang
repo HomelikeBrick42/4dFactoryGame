@@ -21,7 +21,7 @@ float3 skybox(float4 direction)
     return color;
 }
 
-Optional<float3> hit_ground(Ray ray)
+Optional<float3> hit_ground(Ray ray, Optional<int3> hovered_tile)
 {
     let distance = ray.origin.y / -ray.direction.y;
     if (distance < 0.0)
@@ -29,8 +29,11 @@ Optional<float3> hit_ground(Ray ray)
 
     let point = ray.origin + ray.direction * distance;
 
-    var checker_index = int(floor(point.x)) + int(floor(point.z)) + int(floor(point.w));
-    if (checker_index % 2 == 0)
+    let tile = int3(floor(point.xzw));
+    if (hovered_tile.hasValue && all(hovered_tile.value == tile))
+        return float3(0.2, 0.2, 0.5);
+
+    if ((tile.x + tile.y + tile.z) % 2 == 0)
         return float3(0.5);
     return float3(1.0);
 }
