@@ -35,6 +35,11 @@ void trace_rays(uint3 global_index: SV_DispatchThreadID)
     ray.origin = camera.position;
     ray.direction = normalize(camera.forward + camera.up * uv.y + camera.right * uv.x);
 
-    let color = ray.direction.xyz * 0.5 + 0.5;
+    var color = skybox(ray.direction);
+
+    let ground = hit_ground(ray);
+    if (ground.hasValue)
+        color = ground.value;
+
     output_texture.Store(global_index.xy, float4(color, 1.0));
 }

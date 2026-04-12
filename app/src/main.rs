@@ -35,7 +35,7 @@ impl App for Game {
         let camera = Camera {
             position: Vector4 {
                 x: 0.0,
-                y: 0.0,
+                y: 2.0,
                 z: 0.0,
                 w: 0.0,
             },

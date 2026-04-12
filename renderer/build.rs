@@ -27,6 +27,7 @@ fn main() {
             .arg("-o")
             .arg(out_filepath)
             .args(["-warnings-as-errors", "all"])
+            // .args(["-O3", "-fp-mode", "fast"])
             .stderr(Stdio::piped())
             .spawn()
             .unwrap();
