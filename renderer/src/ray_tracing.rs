@@ -1,3 +1,5 @@
+use std::mem::offset_of;
+
 use crate::texture::{Texture, write_storage_bind_group_layout};
 use bytemuck::NoUninit;
 use math::{Vector3, Vector4};
@@ -13,7 +15,7 @@ pub struct Camera {
     pub hovered_tile: Option<Vector3<i32>>,
 }
 
-#[derive(Debug, Clone, Copy, NoUninit)]
+#[derive(Clone, Copy, NoUninit)]
 #[repr(C)]
 struct GpuCamera {
     position: Vector4<f32>,
@@ -48,13 +50,31 @@ impl From<Camera> for GpuCamera {
     }
 }
 
+#[derive(Clone, Copy, NoUninit)]
+#[repr(C)]
+struct ObjectsInfo {
+    hyperspheres_count: u32,
+}
+
+#[derive(Debug, Clone, Copy, NoUninit)]
+#[repr(C)]
+pub struct Hypersphere {
+    pub position: Vector4<f32>,
+    pub color: Vector3<f32>,
+    pub radius: f32,
+}
+
 pub struct Renderer {
-    #[expect(unused)]
     device: wgpu::Device,
     queue: wgpu::Queue,
 
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
+
+    objects_info_buffer: wgpu::Buffer,
+    hypersphere_buffer: wgpu::Buffer,
+    objects_bind_group_layout: wgpu::BindGroupLayout,
+    objects_bind_group: wgpu::BindGroup,
 
     ray_tracing_pipeline: wgpu::ComputePipeline,
 }
@@ -94,6 +114,53 @@ impl Renderer {
             }],
         });
 
+        let objects_info_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Objects Info Buffer"),
+            contents: &{
+                let mut bytes = [0; size_of::<ObjectsInfo>().next_multiple_of(16)];
+                bytes[..size_of::<ObjectsInfo>()].copy_from_slice(bytemuck::bytes_of(
+                    &ObjectsInfo {
+                        hyperspheres_count: 0,
+                    },
+                ));
+                bytes
+            },
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+        let hypersphere_buffer = hyperpshere_buffer(&device, 0);
+        let objects_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Objects Bind Group Layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                ],
+            });
+        let objects_bind_group = objects_bind_group(
+            &device,
+            &objects_bind_group_layout,
+            &objects_info_buffer,
+            &hypersphere_buffer,
+        );
+
         let ray_tracing_shader = device.create_shader_module(wgpu::include_wgsl!(concat!(
             env!("OUT_DIR"),
             "/shaders/ray_tracing.wgsl"
@@ -104,6 +171,7 @@ impl Renderer {
                 bind_group_layouts: &[
                     Some(&write_storage_bind_group_layout(&device)),
                     Some(&camera_bind_group_layout),
+                    Some(&objects_bind_group_layout),
                 ],
                 immediate_size: 0,
             });
@@ -124,6 +192,11 @@ impl Renderer {
             camera_buffer,
             camera_bind_group,
 
+            objects_info_buffer,
+            hypersphere_buffer,
+            objects_bind_group_layout,
+            objects_bind_group,
+
             ray_tracing_pipeline,
         }
     }
@@ -136,6 +209,28 @@ impl Renderer {
         );
     }
 
+    pub fn set_hyperspheres(&mut self, hyperspheres: &[Hypersphere]) {
+        if size_of_val::<[_]>(hyperspheres) > self.hypersphere_buffer.size() as _ {
+            self.hypersphere_buffer = hyperpshere_buffer(&self.device, hyperspheres.len());
+            self.objects_bind_group = objects_bind_group(
+                &self.device,
+                &self.objects_bind_group_layout,
+                &self.objects_info_buffer,
+                &self.hypersphere_buffer,
+            );
+        }
+        self.queue.write_buffer(
+            &self.hypersphere_buffer,
+            0,
+            bytemuck::cast_slice(hyperspheres),
+        );
+        self.queue.write_buffer(
+            &self.objects_info_buffer,
+            offset_of!(ObjectsInfo, hyperspheres_count) as _,
+            bytemuck::bytes_of(&(hyperspheres.len() as u32)),
+        );
+    }
+
     pub fn render(&mut self, texture: &mut Texture, encoder: &mut wgpu::CommandEncoder) {
         let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("Ray Tracing Compute Pass"),
@@ -145,10 +240,42 @@ impl Renderer {
         compute_pass.set_pipeline(&self.ray_tracing_pipeline);
         compute_pass.set_bind_group(0, texture.write_storage_bind_group(), &[]);
         compute_pass.set_bind_group(1, &self.camera_bind_group, &[]);
+        compute_pass.set_bind_group(2, &self.objects_bind_group, &[]);
         compute_pass.dispatch_workgroups(
             texture.width().div_ceil(16),
             texture.height().div_ceil(16),
             1,
         );
     }
+}
+
+fn hyperpshere_buffer(device: &wgpu::Device, length: usize) -> wgpu::Buffer {
+    device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("Hypersphere Buffer"),
+        size: (length.max(1) * size_of::<Hypersphere>()) as _,
+        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    })
+}
+
+fn objects_bind_group(
+    device: &wgpu::Device,
+    layout: &wgpu::BindGroupLayout,
+    objects_info_buffer: &wgpu::Buffer,
+    hypersphere_buffer: &wgpu::Buffer,
+) -> wgpu::BindGroup {
+    device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("Objects Bind Group"),
+        layout,
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: objects_info_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: hypersphere_buffer.as_entire_binding(),
+            },
+        ],
+    })
 }

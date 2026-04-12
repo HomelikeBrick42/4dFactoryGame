@@ -1,8 +1,8 @@
 use crate::camera::Camera;
 use math::{NoE2Rotor, Vector2, Vector3, Vector4};
 use renderer::{
-    app::{App, InputState, run_app},
-    ray_tracing::Renderer,
+    app::{App, InputState, MouseButton, run_app},
+    ray_tracing::{Hypersphere, Renderer},
     texture::Texture,
     ui::{self, Quad},
 };
@@ -21,6 +21,8 @@ pub struct Game {
     ui: ui::Renderer,
     renderer: Renderer,
     main_texture: Texture,
+
+    hyperspheres: Vec<Hypersphere>,
 }
 
 impl App for Game {
@@ -35,10 +37,10 @@ impl App for Game {
     fn new(device: wgpu::Device, queue: wgpu::Queue) -> Self {
         let camera = Camera {
             position: Vector4 {
-                x: 0.0,
+                x: 0.5,
                 y: 2.0,
-                z: 0.0,
-                w: 0.0,
+                z: 0.5,
+                w: 0.5,
             },
             base_rotation: NoE2Rotor::identity(),
             xy_rotation: 0.0,
@@ -64,6 +66,8 @@ impl App for Game {
             ui,
             renderer,
             main_texture,
+
+            hyperspheres: vec![],
         }
     }
 
@@ -76,17 +80,40 @@ impl App for Game {
             .camera
             .get_ray(input_state.mouse_position(), width, height);
         let distance = ray.origin.y / -ray.direction.y;
-        self.selected_tile = if distance > 0.0 {
-            let point = ray.origin + ray.direction * distance;
-            let tile = Vector3 {
+        self.selected_tile = if distance > 0.0
+            && let point = ray.origin + ray.direction * distance
+            && let tile = (Vector3 {
                 x: point.x.floor() as i32,
                 y: point.z.floor() as i32,
                 z: point.w.floor() as i32,
-            };
+            })
+            && tile.x.abs() <= 16
+            && tile.y.abs() <= 16
+            && tile.z.abs() <= 16
+        {
             Some(tile)
         } else {
             None
         };
+
+        if let Some(selected_tile) = self.selected_tile
+            && input_state.mouse_button_just_pressed(MouseButton::Left)
+        {
+            self.hyperspheres.push(Hypersphere {
+                position: Vector4 {
+                    x: selected_tile.x as f32 + 0.5,
+                    y: 0.5,
+                    z: selected_tile.y as f32 + 0.5,
+                    w: selected_tile.z as f32 + 0.5,
+                },
+                color: Vector3 {
+                    x: rand::random(),
+                    y: rand::random(),
+                    z: rand::random(),
+                },
+                radius: 0.5,
+            });
+        }
     }
 
     fn render<'a>(
@@ -105,6 +132,7 @@ impl App for Game {
         }
         self.renderer
             .set_camera(self.camera.to_gpu(self.selected_tile));
+        self.renderer.set_hyperspheres(&self.hyperspheres);
         self.renderer.render(&mut self.main_texture, encoder);
 
         let aspect = width as f32 / height as f32;
