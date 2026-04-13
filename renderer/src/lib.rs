@@ -1,4 +1,7 @@
 pub mod app;
-pub mod ui;
-pub mod texture;
 pub mod ray_tracing;
+pub(crate) mod storage;
+pub mod texture;
+pub mod ui;
+
+pub use storage::Id;

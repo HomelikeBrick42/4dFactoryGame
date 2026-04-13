@@ -1,12 +1,13 @@
 use crate::camera::Camera;
 use math::{NoE2Rotor, Vector2, Vector3, Vector4};
 use renderer::{
+    Id,
     app::{App, InputState, MouseButton, run_app},
     ray_tracing::{Hypersphere, Renderer},
     texture::Texture,
     ui::{self, Quad},
 };
-use std::{f32::consts::TAU, time::Duration};
+use std::{collections::VecDeque, f32::consts::TAU, time::Duration};
 
 pub mod camera;
 
@@ -22,7 +23,7 @@ pub struct Game {
     renderer: Renderer,
     main_texture: Texture,
 
-    hyperspheres: Vec<Hypersphere>,
+    last_spawned: VecDeque<Id<Hypersphere>>,
 }
 
 impl App for Game {
@@ -67,7 +68,7 @@ impl App for Game {
             renderer,
             main_texture,
 
-            hyperspheres: vec![],
+            last_spawned: VecDeque::new(),
         }
     }
 
@@ -99,20 +100,26 @@ impl App for Game {
         if let Some(selected_tile) = self.selected_tile
             && input_state.mouse_button_just_pressed(MouseButton::Left)
         {
-            self.hyperspheres.push(Hypersphere {
-                position: Vector4 {
-                    x: selected_tile.x as f32 + 0.5,
-                    y: 0.5,
-                    z: selected_tile.y as f32 + 0.5,
-                    w: selected_tile.z as f32 + 0.5,
-                },
-                color: Vector3 {
-                    x: rand::random(),
-                    y: rand::random(),
-                    z: rand::random(),
-                },
-                radius: 0.5,
-            });
+            self.last_spawned
+                .push_back(self.renderer.add_hypersphere(Hypersphere {
+                    position: Vector4 {
+                        x: selected_tile.x as f32 + 0.5,
+                        y: 0.5,
+                        z: selected_tile.y as f32 + 0.5,
+                        w: selected_tile.z as f32 + 0.5,
+                    },
+                    color: Vector3 {
+                        x: rand::random(),
+                        y: rand::random(),
+                        z: rand::random(),
+                    },
+                    radius: 0.5,
+                }));
+
+            if self.last_spawned.len() > 3 {
+                self.renderer
+                    .remove_hypersphere(self.last_spawned.pop_front().unwrap());
+            }
         }
     }
 
@@ -132,7 +139,6 @@ impl App for Game {
         }
         self.renderer
             .set_camera(self.camera.to_gpu(self.selected_tile));
-        self.renderer.set_hyperspheres(&self.hyperspheres);
         self.renderer.render(&mut self.main_texture, encoder);
 
         let aspect = width as f32 / height as f32;

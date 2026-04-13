@@ -1,6 +1,8 @@
-use std::mem::offset_of;
-
-use crate::texture::{Texture, write_storage_bind_group_layout};
+use crate::{
+    Id,
+    storage::{Storage, StorageElement},
+    texture::{Texture, write_storage_bind_group_layout},
+};
 use bytemuck::NoUninit;
 use math::{Vector3, Vector4};
 use wgpu::util::DeviceExt;
@@ -64,6 +66,10 @@ pub struct Hypersphere {
     pub radius: f32,
 }
 
+impl StorageElement for Hypersphere {
+    type GpuType = Hypersphere;
+}
+
 pub struct Renderer {
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -72,8 +78,9 @@ pub struct Renderer {
     camera_bind_group: wgpu::BindGroup,
 
     objects_info_buffer: wgpu::Buffer,
-    hypersphere_buffer: wgpu::Buffer,
+    hyperspheres: Storage<Hypersphere>,
     objects_bind_group_layout: wgpu::BindGroupLayout,
+    should_recreate_objects_bind_group: bool,
     objects_bind_group: wgpu::BindGroup,
 
     ray_tracing_pipeline: wgpu::ComputePipeline,
@@ -127,7 +134,7 @@ impl Renderer {
             },
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
-        let hypersphere_buffer = hyperpshere_buffer(&device, 0);
+        let hyperspheres = Storage::new(&device, "Hypersphere Buffer");
         let objects_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("Objects Bind Group Layout"),
@@ -158,7 +165,7 @@ impl Renderer {
             &device,
             &objects_bind_group_layout,
             &objects_info_buffer,
-            &hypersphere_buffer,
+            hyperspheres.buffer(),
         );
 
         let ray_tracing_shader = device.create_shader_module(wgpu::include_wgsl!(concat!(
@@ -193,8 +200,9 @@ impl Renderer {
             camera_bind_group,
 
             objects_info_buffer,
-            hypersphere_buffer,
+            hyperspheres,
             objects_bind_group_layout,
+            should_recreate_objects_bind_group: false,
             objects_bind_group,
 
             ray_tracing_pipeline,
@@ -209,29 +217,41 @@ impl Renderer {
         );
     }
 
-    pub fn set_hyperspheres(&mut self, hyperspheres: &[Hypersphere]) {
-        if size_of_val::<[_]>(hyperspheres) > self.hypersphere_buffer.size() as _ {
-            self.hypersphere_buffer = hyperpshere_buffer(&self.device, hyperspheres.len());
+    pub fn add_hypersphere(&mut self, hypersphere: Hypersphere) -> Id<Hypersphere> {
+        let (id, reallocated) = self
+            .hyperspheres
+            .add(&self.device, &self.queue, hypersphere);
+        self.should_recreate_objects_bind_group |= reallocated;
+        id
+    }
+
+    pub fn update_hypersphere(&mut self, id: Id<Hypersphere>, hypersphere: Hypersphere) {
+        self.hyperspheres.update(&self.queue, id, hypersphere);
+    }
+
+    pub fn remove_hypersphere(&mut self, id: Id<Hypersphere>) {
+        self.hyperspheres.remove(&self.device, &self.queue, id);
+    }
+
+    pub fn render(&mut self, texture: &mut Texture, encoder: &mut wgpu::CommandEncoder) {
+        if self.should_recreate_objects_bind_group {
+            self.should_recreate_objects_bind_group = false;
             self.objects_bind_group = objects_bind_group(
                 &self.device,
                 &self.objects_bind_group_layout,
                 &self.objects_info_buffer,
-                &self.hypersphere_buffer,
+                self.hyperspheres.buffer(),
             );
         }
-        self.queue.write_buffer(
-            &self.hypersphere_buffer,
-            0,
-            bytemuck::cast_slice(hyperspheres),
-        );
+
         self.queue.write_buffer(
             &self.objects_info_buffer,
-            offset_of!(ObjectsInfo, hyperspheres_count) as _,
-            bytemuck::bytes_of(&(hyperspheres.len() as u32)),
+            0,
+            bytemuck::bytes_of(&ObjectsInfo {
+                hyperspheres_count: self.hyperspheres.len() as _,
+            }),
         );
-    }
 
-    pub fn render(&mut self, texture: &mut Texture, encoder: &mut wgpu::CommandEncoder) {
         let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("Ray Tracing Compute Pass"),
             timestamp_writes: None,
@@ -247,15 +267,6 @@ impl Renderer {
             1,
         );
     }
-}
-
-fn hyperpshere_buffer(device: &wgpu::Device, length: usize) -> wgpu::Buffer {
-    device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("Hypersphere Buffer"),
-        size: (length.max(1) * size_of::<Hypersphere>()) as _,
-        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    })
 }
 
 fn objects_bind_group(
