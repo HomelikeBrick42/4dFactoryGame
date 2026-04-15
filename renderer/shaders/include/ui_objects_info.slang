@@ -1,0 +1,4 @@
+struct ObjectsInfo
+{
+    float aspect;
+}

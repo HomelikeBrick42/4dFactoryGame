@@ -3,23 +3,17 @@ import include.ui_objects_info;
 [vk::binding(0, 0)]
 ConstantBuffer<ObjectsInfo> objects_info;
 
-struct Quad
+struct Line
 {
-    float2 position;
-    float2 size;
-    float2 uv_offset;
-    float2 uv_size;
+    float2 a;
+    float2 b;
+    float3 _padding;
+    float width;
     float4 color;
 }
 
-[vk::binding(1, 0)]
-StructuredBuffer<Quad> quads;
-
-[vk::binding(0, 1)]
-Texture2D texture;
-
-[vk::binding(1, 1)]
-SamplerState sampler;
+[vk::binding(3, 0)]
+StructuredBuffer<Line> lines;
 
 struct VertexOutput
 {
@@ -35,8 +29,10 @@ VertexOutput vertex(uint vertex_index: SV_VertexID, uint instance_index: SV_Inst
     out.instance_index = instance_index;
     out.uv = float2(vertex_index & 1, (vertex_index >> 1) & 1);
 
-    let quad = quads[instance_index];
-    out.clip_position = float4(quad.position + quad.size * (out.uv - 0.5), 0.0, 1.0);
+    let line = lines[instance_index];
+    let dir = line.b - line.a;
+    let dir_perp = float2(-dir.y, dir.x);
+    out.clip_position = float4(line.a + out.uv.x * dir + line.width * (out.uv.y - 0.5) * normalize(dir_perp), 0.0, 1.0);
     out.clip_position.x /= objects_info.aspect;
 
     return out;
@@ -52,8 +48,8 @@ FragmentOutput fragment(VertexOutput in)
 {
     var out : FragmentOutput;
 
-    let quad = quads[in.instance_index];
-    out.color = texture.Sample(sampler, quad.uv_offset + in.uv * quad.uv_size) * quad.color;
+    let line = lines[in.instance_index];
+    out.color = line.color;
 
     return out;
 }

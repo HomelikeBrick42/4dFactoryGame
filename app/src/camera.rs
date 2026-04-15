@@ -68,22 +68,22 @@ impl Camera {
             if input_state.key_pressed(KeyCode::ArrowUp) {
                 self.base_rotation = self
                     .base_rotation
-                    .then(NoE2Rotor::rotate_zw(rotation_speed * dt));
+                    .then(NoE2Rotor::rotate_xw(rotation_speed * dt));
             }
             if input_state.key_pressed(KeyCode::ArrowDown) {
                 self.base_rotation = self
                     .base_rotation
-                    .then(NoE2Rotor::rotate_zw(-rotation_speed * dt));
+                    .then(NoE2Rotor::rotate_xw(-rotation_speed * dt));
             }
             if input_state.key_pressed(KeyCode::ArrowLeft) {
                 self.base_rotation = self
                     .base_rotation
-                    .then(NoE2Rotor::rotate_xw(-rotation_speed * dt));
+                    .then(NoE2Rotor::rotate_zw(-rotation_speed * dt));
             }
             if input_state.key_pressed(KeyCode::ArrowRight) {
                 self.base_rotation = self
                     .base_rotation
-                    .then(NoE2Rotor::rotate_xw(rotation_speed * dt));
+                    .then(NoE2Rotor::rotate_zw(rotation_speed * dt));
             }
         }
     }

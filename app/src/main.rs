@@ -5,7 +5,7 @@ use renderer::{
     app::{App, InputState, MouseButton, run_app},
     ray_tracing::{Hypersphere, Renderer},
     texture::Texture,
-    ui::{self, Quad},
+    ui::{self, Circle, Line, Quad},
 };
 use std::{collections::VecDeque, f32::consts::TAU, time::Duration};
 
@@ -162,8 +162,145 @@ impl App for Game {
             Some(&self.main_texture),
         );
 
+        Self::render_compass(&mut frame, self.camera.base_rotation.reverse(), aspect);
+
         |render_pass| {
             frame.render(render_pass);
+        }
+    }
+}
+
+impl Game {
+    pub fn render_compass(frame: &mut ui::Frame<'_>, rotation: NoE2Rotor, aspect: f32) {
+        frame.push_circle(Circle {
+            position: Vector2 {
+                x: aspect - 0.25,
+                y: 0.75,
+            },
+            radius: 0.25,
+            color: Vector4 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+                w: 0.75,
+            },
+        });
+        frame.push_circle(Circle {
+            position: Vector2 {
+                x: aspect - 0.25,
+                y: 0.75,
+            },
+            radius: 0.23,
+            color: Vector4 {
+                x: 0.5,
+                y: 0.5,
+                z: 0.5,
+                w: 0.75,
+            },
+        });
+
+        let mut lines = [
+            (
+                rotation.transform_direction(Vector4 {
+                    x: 1.0,
+                    y: 0.0,
+                    z: 0.0,
+                    w: 0.0,
+                }),
+                Vector4 {
+                    x: 1.0,
+                    y: 0.0,
+                    z: 0.0,
+                    w: 1.0,
+                },
+            ),
+            (
+                rotation.transform_direction(Vector4 {
+                    x: -1.0,
+                    y: 0.0,
+                    z: 0.0,
+                    w: 0.0,
+                }),
+                Vector4 {
+                    x: 1.0,
+                    y: 0.0,
+                    z: 0.0,
+                    w: 1.0,
+                },
+            ),
+            (
+                rotation.transform_direction(Vector4 {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 1.0,
+                    w: 0.0,
+                }),
+                Vector4 {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 1.0,
+                    w: 1.0,
+                },
+            ),
+            (
+                rotation.transform_direction(Vector4 {
+                    x: 0.0,
+                    y: 0.0,
+                    z: -1.0,
+                    w: 0.0,
+                }),
+                Vector4 {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 1.0,
+                    w: 1.0,
+                },
+            ),
+            (
+                rotation.transform_direction(Vector4 {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0,
+                    w: 1.0,
+                }),
+                Vector4 {
+                    x: 1.0,
+                    y: 0.0,
+                    z: 1.0,
+                    w: 1.0,
+                },
+            ),
+            (
+                rotation.transform_direction(Vector4 {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0,
+                    w: -1.0,
+                }),
+                Vector4 {
+                    x: 1.0,
+                    y: 0.0,
+                    z: 1.0,
+                    w: 1.0,
+                },
+            ),
+        ];
+        lines.sort_by(|(a, _), (b, _)| a.w.total_cmp(&b.w));
+        for (direction, color) in lines {
+            let center = Vector2 {
+                x: aspect - 0.25,
+                y: 0.75,
+            };
+            frame.push_line(Line {
+                a: center,
+                b: center
+                    + Vector2 {
+                        x: direction.z,
+                        y: direction.x,
+                    } * 0.22,
+                width: 0.01,
+                color,
+            });
         }
     }
 }

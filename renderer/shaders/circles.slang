@@ -3,23 +3,16 @@ import include.ui_objects_info;
 [vk::binding(0, 0)]
 ConstantBuffer<ObjectsInfo> objects_info;
 
-struct Quad
+struct Circle
 {
     float2 position;
-    float2 size;
-    float2 uv_offset;
-    float2 uv_size;
+    float radius;
+    float _padding;
     float4 color;
 }
 
-[vk::binding(1, 0)]
-StructuredBuffer<Quad> quads;
-
-[vk::binding(0, 1)]
-Texture2D texture;
-
-[vk::binding(1, 1)]
-SamplerState sampler;
+[vk::binding(2, 0)]
+StructuredBuffer<Circle> circles;
 
 struct VertexOutput
 {
@@ -35,8 +28,8 @@ VertexOutput vertex(uint vertex_index: SV_VertexID, uint instance_index: SV_Inst
     out.instance_index = instance_index;
     out.uv = float2(vertex_index & 1, (vertex_index >> 1) & 1);
 
-    let quad = quads[instance_index];
-    out.clip_position = float4(quad.position + quad.size * (out.uv - 0.5), 0.0, 1.0);
+    let circle = circles[instance_index];
+    out.clip_position = float4(circle.position + circle.radius * (out.uv * 2.0 - 1.0), 0.0, 1.0);
     out.clip_position.x /= objects_info.aspect;
 
     return out;
@@ -52,8 +45,12 @@ FragmentOutput fragment(VertexOutput in)
 {
     var out : FragmentOutput;
 
-    let quad = quads[in.instance_index];
-    out.color = texture.Sample(sampler, quad.uv_offset + in.uv * quad.uv_size) * quad.color;
+    let coord = in.uv * 2.0 - 1.0;
+    if (dot(coord, coord) > 1.0)
+        discard;
+
+    let circle = circles[in.instance_index];
+    out.color = circle.color;
 
     return out;
 }
