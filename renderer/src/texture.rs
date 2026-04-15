@@ -16,7 +16,7 @@ impl Texture {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba32Float,
+            format: wgpu::TextureFormat::Rgba8Unorm,
             usage,
             view_formats: &[],
         });
@@ -129,7 +129,7 @@ pub(crate) fn write_storage_bind_group_layout(device: &wgpu::Device) -> wgpu::Bi
             visibility: wgpu::ShaderStages::COMPUTE,
             ty: wgpu::BindingType::StorageTexture {
                 access: wgpu::StorageTextureAccess::WriteOnly,
-                format: wgpu::TextureFormat::Rgba32Float,
+                format: wgpu::TextureFormat::Rgba8Unorm,
                 view_dimension: wgpu::TextureViewDimension::D2,
             },
             count: None,

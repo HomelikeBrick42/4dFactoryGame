@@ -1,7 +1,7 @@
 import include.ray;
 
 [vk::binding(0, 0)]
-[format("rgba32f")]
+[format("rgba8")]
 WTexture2D output_texture;
 
 struct Camera

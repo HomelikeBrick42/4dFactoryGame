@@ -48,7 +48,7 @@ Optional<Hit> hit_ground(Ray ray, Optional<int3> hovered_tile)
     if (hovered_tile.hasValue && all(hovered_tile.value == tile))
     {
         let distance_from_center = abs(hit.position.xzw - (float3(tile) + 0.5));
-        if (max3(distance_from_center.x, distance_from_center.y, distance_from_center.z) > 0.4)
+        if (max(max(distance_from_center.x, distance_from_center.y), distance_from_center.z) > 0.4)
         {
             hit.color = float3(0.2, 0.2, 0.5);
             return hit;

@@ -28,7 +28,7 @@ pub struct Game {
 
 impl App for Game {
     const NAME: &str = "4d Factory Game";
-    const FEATURES: wgpu::Features = wgpu::Features::FLOAT32_FILTERABLE;
+    const FEATURES: wgpu::Features = wgpu::Features::empty();
     const PRESENT_MODE: wgpu::PresentMode = wgpu::PresentMode::AutoNoVsync;
     const COLOR_LOAD_OP: wgpu::LoadOp<wgpu::Color> =
         wgpu::LoadOp::DontCare(unsafe { wgpu::LoadOpDontCare::enabled() });

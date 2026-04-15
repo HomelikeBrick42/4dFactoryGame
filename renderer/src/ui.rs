@@ -46,7 +46,7 @@ impl Renderer {
         );
         queue.write_texture(
             white_texture.texture().as_image_copy(),
-            bytemuck::cast_slice(&[1.0f32, 1.0, 1.0, 1.0]),
+            &[255, 255, 255, 255],
             wgpu::TexelCopyBufferLayout {
                 offset: 0,
                 bytes_per_row: None,
