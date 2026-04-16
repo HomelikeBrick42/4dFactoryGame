@@ -128,11 +128,11 @@ impl Renderer {
                     $($bind_group_layouts:expr,)*
                 ],
             } => {{
-                let shader = device.create_shader_module(wgpu::include_wgsl!(concat!(
+                let shader = device.create_shader_module(wgpu::include_spirv!(concat!(
                     env!("OUT_DIR"),
                     "/shaders/",
                     $shader_name,
-                    ".wgsl"
+                    ".spv"
                 )));
                 let render_pipeline_layout =
                     device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {

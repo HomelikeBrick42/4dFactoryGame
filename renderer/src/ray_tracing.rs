@@ -168,9 +168,9 @@ impl Renderer {
             hyperspheres.buffer(),
         );
 
-        let ray_tracing_shader = device.create_shader_module(wgpu::include_wgsl!(concat!(
+        let ray_tracing_shader = device.create_shader_module(wgpu::include_spirv!(concat!(
             env!("OUT_DIR"),
-            "/shaders/ray_tracing.wgsl"
+            "/shaders/ray_tracing.spv"
         )));
         let ray_tracing_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {

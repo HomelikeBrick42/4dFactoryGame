@@ -20,14 +20,16 @@ fn main() {
 
         let file_path = entry.path();
         let name = PathBuf::from(file_path.file_name().unwrap());
-        let out_filepath = out_dir.join(name.with_extension("wgsl"));
+        let out_filepath = out_dir.join(name.with_extension("spv"));
 
         let process = std::process::Command::new("slangc")
             .arg(&file_path)
             .arg("-o")
             .arg(out_filepath)
+            .arg("-fvk-use-entrypoint-name")
             .args(["-warnings-as-errors", "all"])
             .args(["-O3", "-fp-mode", "fast"])
+            .args(["-profile", "spirv_1_3"])
             .stderr(Stdio::piped())
             .spawn()
             .unwrap();

@@ -3,7 +3,7 @@ resolver = "3"
 members = ["app", "math", "renderer"]
 
 [workspace.dependencies]
-wgpu = "29.0.1"
+wgpu = { version = "29.0.1", features = ["spirv"] }
 winit = "0.30.13"
 bytemuck = { version = "1.25.0", features = ["derive"] }
 math.path = "math"

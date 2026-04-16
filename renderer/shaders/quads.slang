@@ -29,7 +29,7 @@ struct VertexOutput
 }
 
 [shader("vertex")]
-VertexOutput vertex(uint vertex_index: SV_VertexID, uint instance_index: SV_InstanceID)
+VertexOutput vertex(uint vertex_index: SV_VulkanVertexID, uint instance_index: SV_VulkanInstanceID)
 {
     var out : VertexOutput;
     out.instance_index = instance_index;
