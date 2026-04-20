@@ -1,6 +1,9 @@
 use crate::texture::{Texture, sampler_bind_group_layout};
 use bytemuck::NoUninit;
+pub use font::*;
 use math::{Vector2, Vector3, Vector4};
+
+mod font;
 
 pub struct Renderer {
     device: wgpu::Device,
@@ -40,19 +43,18 @@ impl Renderer {
     pub fn new(device: wgpu::Device, queue: wgpu::Queue) -> Self {
         let white_texture = Texture::new(
             &device,
+            &queue,
             1,
             1,
             wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-        );
-        queue.write_texture(
-            white_texture.texture().as_image_copy(),
-            &[255, 255, 255, 255],
-            wgpu::TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: None,
-                rows_per_image: None,
-            },
-            white_texture.texture().size(),
+            wgpu::FilterMode::Nearest,
+            wgpu::FilterMode::Nearest,
+            Some(&[Vector4 {
+                x: 255,
+                y: 255,
+                z: 255,
+                w: 255,
+            }]),
         );
 
         let objects_info_buffer = device.create_buffer(&wgpu::BufferDescriptor {

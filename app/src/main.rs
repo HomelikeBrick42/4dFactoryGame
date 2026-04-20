@@ -5,7 +5,7 @@ use renderer::{
     app::{App, InputState, MouseButton, run_app},
     ray_tracing::{Hypersphere, Renderer},
     texture::Texture,
-    ui::{self, Circle, Line, Quad},
+    ui::{self, Circle, Font, Line, Quad},
 };
 use std::{collections::VecDeque, f32::consts::TAU, time::Duration};
 
@@ -13,13 +13,14 @@ pub mod camera;
 
 pub struct Game {
     device: wgpu::Device,
-    #[expect(unused)]
     queue: wgpu::Queue,
 
     camera: Camera,
     selected_tile: Option<Vector3<i32>>,
 
     ui: ui::Renderer,
+    font: Font,
+
     renderer: Renderer,
     main_texture: Texture,
 
@@ -49,12 +50,54 @@ impl App for Game {
         };
 
         let ui = ui::Renderer::new(device.clone(), queue.clone());
+        let font = Font::new(
+            include_str!("../fonts/space_mono.fnt"),
+            vec![
+                {
+                    let texture =
+                        image::load_from_memory(include_bytes!("../fonts/space_mono_0.png"))
+                            .unwrap()
+                            .to_rgba8();
+                    Texture::new(
+                        &device,
+                        &queue,
+                        texture.width(),
+                        texture.height(),
+                        wgpu::TextureUsages::TEXTURE_BINDING,
+                        wgpu::FilterMode::Linear,
+                        wgpu::FilterMode::Linear,
+                        Some(bytemuck::cast_slice(&texture)),
+                    )
+                },
+                {
+                    let texture =
+                        image::load_from_memory(include_bytes!("../fonts/space_mono_1.png"))
+                            .unwrap()
+                            .to_rgba8();
+                    Texture::new(
+                        &device,
+                        &queue,
+                        texture.width(),
+                        texture.height(),
+                        wgpu::TextureUsages::TEXTURE_BINDING,
+                        wgpu::FilterMode::Linear,
+                        wgpu::FilterMode::Linear,
+                        Some(bytemuck::cast_slice(&texture)),
+                    )
+                },
+            ],
+        );
+
         let renderer = Renderer::new(device.clone(), queue.clone(), camera.to_gpu(None));
         let main_texture = Texture::new(
             &device,
+            &queue,
             1,
             1,
             wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::TEXTURE_BINDING,
+            wgpu::FilterMode::Linear,
+            wgpu::FilterMode::Linear,
+            None,
         );
 
         Self {
@@ -65,6 +108,8 @@ impl App for Game {
             selected_tile: None,
 
             ui,
+            font,
+
             renderer,
             main_texture,
 
@@ -132,9 +177,13 @@ impl App for Game {
         if self.main_texture.width() != width && self.main_texture.height() != height {
             self.main_texture = Texture::new(
                 &self.device,
+                &self.queue,
                 width,
                 height,
                 wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::TEXTURE_BINDING,
+                wgpu::FilterMode::Linear,
+                wgpu::FilterMode::Linear,
+                None,
             );
         }
         self.renderer
@@ -163,6 +212,20 @@ impl App for Game {
         );
 
         Self::render_compass(&mut frame, self.camera.base_rotation.reverse(), aspect);
+
+        let mut cursor = Vector2 { x: -0.5, y: 0.0 };
+        self.font.draw_str(
+            &mut frame,
+            &mut cursor,
+            0.2,
+            Vector4 {
+                x: 1.0,
+                y: 1.0,
+                z: 1.0,
+                w: 1.0,
+            },
+            "this is some text",
+        );
 
         |render_pass| {
             frame.render(render_pass);

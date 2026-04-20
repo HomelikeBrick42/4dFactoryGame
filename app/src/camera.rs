@@ -86,6 +86,9 @@ impl Camera {
                     .then(NoE2Rotor::rotate_zw(rotation_speed * dt));
             }
         }
+
+        self.base_rotation = self.base_rotation.normalised();
+        self.xy_rotation %= TAU;
     }
 
     pub fn rotation(&self) -> Rotor {

@@ -409,6 +409,44 @@ impl NoE2Rotor {
     }
 
     #[inline]
+    pub fn magnitude_squared(self) -> f32 {
+        let Self {
+            s,
+            e1e3,
+            e1e4,
+            e3e4,
+        } = self;
+        s * s + e1e3 * e1e3 + e1e4 * e1e4 + e3e4 * e3e4
+    }
+
+    #[inline]
+    pub fn magnitude(self) -> f32 {
+        self.magnitude_squared().sqrt()
+    }
+
+    #[inline]
+    pub fn normalised(self) -> Self {
+        let magnitude = self.magnitude();
+        if magnitude < 0.001 || (magnitude - 1.0).abs() < 0.001 {
+            return self;
+        }
+
+        let magnitude_recip = magnitude.recip();
+        let Self {
+            s,
+            e1e3,
+            e1e4,
+            e3e4,
+        } = self;
+        Self {
+            s: s * magnitude_recip,
+            e1e3: e1e3 * magnitude_recip,
+            e1e4: e1e4 * magnitude_recip,
+            e3e4: e3e4 * magnitude_recip,
+        }
+    }
+
+    #[inline]
     pub fn transform_direction(self, direction: Vector4<f32>) -> Vector4<f32> {
         let (Scalar { s: x }, Scalar { s: y }, Scalar { s: z }, Scalar { s: w }) =
             rotate_no_e2_direction(

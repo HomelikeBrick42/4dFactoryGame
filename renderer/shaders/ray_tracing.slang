@@ -90,7 +90,7 @@ Optional<Hit> hit_scene(Ray ray)
                 float4(1.0, 0.01, 0.0, 0.0),
                 float4(0.0, 0.01, 1.0, 0.0),
                 float4(0.0, 0.01, 0.0, 1.0),
-                float3(1.0, -0.0, 0.0),
+                float3(1.0, 0.0, 0.0),
                 0.0));
         if (hit.hasValue)
             if (!closest_hit.hasValue || closest_hit.value.distance > hit.value.distance)

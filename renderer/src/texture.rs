@@ -1,3 +1,6 @@
+use math::Vector4;
+use wgpu::util::DeviceExt;
+
 pub struct Texture {
     texture: wgpu::Texture,
     sampler_bind_group: Option<wgpu::BindGroup>,
@@ -5,8 +8,17 @@ pub struct Texture {
 }
 
 impl Texture {
-    pub fn new(device: &wgpu::Device, width: u32, height: u32, usage: wgpu::TextureUsages) -> Self {
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
+    pub fn new(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        width: u32,
+        height: u32,
+        usage: wgpu::TextureUsages,
+        min_filter: wgpu::FilterMode,
+        mag_filter: wgpu::FilterMode,
+        data: Option<&[Vector4<u8>]>,
+    ) -> Self {
+        let descriptor = wgpu::TextureDescriptor {
             label: None,
             size: wgpu::Extent3d {
                 width,
@@ -19,7 +31,17 @@ impl Texture {
             format: wgpu::TextureFormat::Rgba8Unorm,
             usage,
             view_formats: &[],
-        });
+        };
+        let texture = if let Some(data) = data {
+            device.create_texture_with_data(
+                queue,
+                &descriptor,
+                Default::default(),
+                bytemuck::cast_slice(data),
+            )
+        } else {
+            device.create_texture(&descriptor)
+        };
         let texture_view = texture.create_view(&Default::default());
 
         let sampler_bind_group = if usage.contains(wgpu::TextureUsages::TEXTURE_BINDING) {
@@ -28,8 +50,8 @@ impl Texture {
                 address_mode_u: wgpu::AddressMode::ClampToEdge,
                 address_mode_v: wgpu::AddressMode::ClampToEdge,
                 address_mode_w: wgpu::AddressMode::ClampToEdge,
-                min_filter: wgpu::FilterMode::Linear,
-                mag_filter: wgpu::FilterMode::Nearest,
+                min_filter,
+                mag_filter,
                 mipmap_filter: wgpu::MipmapFilterMode::Nearest,
                 ..Default::default()
             });
@@ -78,10 +100,6 @@ impl Texture {
 
     pub fn height(&self) -> u32 {
         self.texture.size().height
-    }
-
-    pub(crate) fn texture(&self) -> &wgpu::Texture {
-        &self.texture
     }
 
     pub(crate) fn sampler_bind_group(&self) -> &wgpu::BindGroup {

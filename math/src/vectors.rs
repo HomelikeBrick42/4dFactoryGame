@@ -1,4 +1,4 @@
-use bytemuck::NoUninit;
+use bytemuck::{AnyBitPattern, NoUninit, Zeroable};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -55,6 +55,8 @@ impl Vector2<f32> {
 }
 
 unsafe impl<T: NoUninit> NoUninit for Vector2<T> {}
+unsafe impl<T: Zeroable> Zeroable for Vector2<T> {}
+unsafe impl<T: AnyBitPattern> AnyBitPattern for Vector2<T> {}
 
 impl<T> Neg for Vector2<T>
 where
@@ -324,6 +326,8 @@ impl Vector3<f32> {
 }
 
 unsafe impl<T: NoUninit> NoUninit for Vector3<T> {}
+unsafe impl<T: Zeroable> Zeroable for Vector3<T> {}
+unsafe impl<T: AnyBitPattern> AnyBitPattern for Vector3<T> {}
 
 impl<T> Neg for Vector3<T>
 where
@@ -615,6 +619,8 @@ impl Vector4<f32> {
 }
 
 unsafe impl<T: NoUninit> NoUninit for Vector4<T> {}
+unsafe impl<T: Zeroable> Zeroable for Vector4<T> {}
+unsafe impl<T: AnyBitPattern> AnyBitPattern for Vector4<T> {}
 
 impl<T> Neg for Vector4<T>
 where

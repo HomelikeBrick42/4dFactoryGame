@@ -5,9 +5,11 @@ edition = "2024"
 
 [dependencies]
 wgpu.workspace = true
+bytemuck.workspace = true
 math.workspace = true
 renderer.workspace = true
 rand = "0.10.1"
+image = "0.25.10"
 
 [lints]
 workspace = true
