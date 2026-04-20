@@ -81,7 +81,7 @@ impl Font {
                 Character {
                     offset: Vector2 {
                         x: xoffset as f32 / size as f32,
-                        y: yoffset as f32 / size as f32,
+                        y: -(yoffset as f32 / size as f32),
                     },
                     size: Vector2 {
                         x: width as f32 / size as f32,
@@ -136,7 +136,7 @@ impl Font {
                         x: 0.0,
                         y: self.base * char_height,
                     }
-                    - c.offset * char_height
+                    + c.offset * char_height
                     + c.size * char_height * 0.5,
                 size: c.size * char_height,
                 uv_offset: c.uv_offset,
