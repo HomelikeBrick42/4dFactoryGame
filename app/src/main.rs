@@ -428,7 +428,7 @@ impl Game {
             });
 
             if direction.w > -0.98 {
-                let font_size = 0.1;
+                let font_size = 0.075;
                 let width = font.str_width(font_size, name);
                 font.draw_str(
                     frame,
