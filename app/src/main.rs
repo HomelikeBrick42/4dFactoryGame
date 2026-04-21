@@ -20,6 +20,8 @@ pub struct Game {
 
     ui: ui::Renderer,
     font: Font,
+    fps: f32,
+    frame_time: f32,
 
     renderer: Renderer,
     main_texture: Texture,
@@ -109,6 +111,8 @@ impl App for Game {
 
             ui,
             font,
+            fps: 0.0,
+            frame_time: 0.0,
 
             renderer,
             main_texture,
@@ -120,6 +124,12 @@ impl App for Game {
     fn fixed_update(&mut self, #[expect(unused)] ts: f32) {}
 
     fn update(&mut self, width: u32, height: u32, input_state: &InputState, dt: f32) {
+        if dt != 0.0 {
+            let current_fps = 1.0 / dt;
+            self.fps += (current_fps - self.fps) * ((2.0 * dt).exp() - 1.0);
+            self.frame_time += (dt - self.frame_time) * ((2.0 * dt).exp() - 1.0);
+        }
+
         self.camera.update(input_state, dt);
 
         let ray = self
@@ -211,21 +221,62 @@ impl App for Game {
             Some(&self.main_texture),
         );
 
-        Self::render_compass(&mut frame, self.camera.base_rotation.reverse(), aspect);
-
-        let mut cursor = Vector2 { x: -0.5, y: 0.0 };
-        self.font.draw_str(
+        Self::render_compass(
             &mut frame,
-            &mut cursor,
-            0.2,
-            Vector4 {
-                x: 1.0,
-                y: 1.0,
-                z: 1.0,
-                w: 1.0,
-            },
-            "this is some text",
+            &self.font,
+            self.camera.base_rotation.reverse(),
+            aspect,
         );
+
+        {
+            let font_size = 0.075;
+            let mut line = 0usize;
+            let mut write_text = |s: &str| {
+                self.font.draw_str(
+                    &mut frame,
+                    &mut Vector2 {
+                        x: -aspect,
+                        y: 1.0
+                            - self.font.base(font_size)
+                            - line as f32 * self.font.line_height(font_size),
+                    },
+                    font_size,
+                    Vector4 {
+                        x: 1.0,
+                        y: 1.0,
+                        z: 1.0,
+                        w: 1.0,
+                    },
+                    s,
+                );
+                line += 1;
+            };
+
+            write_text(&format!("FPS: {:.1}", self.fps));
+            write_text(&format!("Frame Time: {:.3}ms", self.frame_time * 1000.0));
+            write_text(&format!(
+                "Position: {:.2}, {:.2}, {:.2}, {:.2}",
+                self.camera.position.x,
+                self.camera.position.y,
+                self.camera.position.z,
+                self.camera.position.w,
+            ));
+            let forward = self.camera.base_rotation.x();
+            write_text(&format!(
+                "Forward: {:5.2}, {:5.2}, {:5.2}, {:5.2}",
+                forward.x, forward.y, forward.z, forward.w,
+            ));
+            let right = self.camera.base_rotation.z();
+            write_text(&format!(
+                "Right:   {:5.2}, {:5.2}, {:5.2}, {:5.2}",
+                right.x, right.y, right.z, right.w,
+            ));
+            let ana = self.camera.base_rotation.w();
+            write_text(&format!(
+                "Ana:     {:5.2}, {:5.2}, {:5.2}, {:5.2}",
+                ana.x, ana.y, ana.z, ana.w,
+            ));
+        }
 
         |render_pass| {
             frame.render(render_pass);
@@ -234,7 +285,12 @@ impl App for Game {
 }
 
 impl Game {
-    pub fn render_compass(frame: &mut ui::Frame<'_>, rotation: NoE2Rotor, aspect: f32) {
+    pub fn render_compass(
+        frame: &mut ui::Frame<'_>,
+        font: &Font,
+        rotation: NoE2Rotor,
+        aspect: f32,
+    ) {
         frame.push_circle(Circle {
             position: Vector2 {
                 x: aspect - 0.25,
@@ -276,6 +332,7 @@ impl Game {
                     z: 0.0,
                     w: 1.0,
                 },
+                "+X",
             ),
             (
                 rotation.transform_direction(Vector4 {
@@ -290,6 +347,7 @@ impl Game {
                     z: 0.0,
                     w: 1.0,
                 },
+                "-X",
             ),
             (
                 rotation.transform_direction(Vector4 {
@@ -304,6 +362,7 @@ impl Game {
                     z: 1.0,
                     w: 1.0,
                 },
+                "+Z",
             ),
             (
                 rotation.transform_direction(Vector4 {
@@ -318,6 +377,7 @@ impl Game {
                     z: 1.0,
                     w: 1.0,
                 },
+                "-Z",
             ),
             (
                 rotation.transform_direction(Vector4 {
@@ -332,6 +392,7 @@ impl Game {
                     z: 1.0,
                     w: 1.0,
                 },
+                "+W",
             ),
             (
                 rotation.transform_direction(Vector4 {
@@ -346,24 +407,46 @@ impl Game {
                     z: 1.0,
                     w: 1.0,
                 },
+                "-W",
             ),
         ];
-        lines.sort_by(|(a, _), (b, _)| a.w.total_cmp(&b.w));
-        for (direction, color) in lines {
+        lines.sort_by(|(a, _, _), (b, _, _)| a.w.total_cmp(&b.w));
+        for (direction, color, name) in lines {
             let center = Vector2 {
                 x: aspect - 0.25,
                 y: 0.75,
             };
+            let direction_2d = Vector2 {
+                x: direction.z,
+                y: direction.x,
+            };
             frame.push_line(Line {
                 a: center,
-                b: center
-                    + Vector2 {
-                        x: direction.z,
-                        y: direction.x,
-                    } * 0.22,
+                b: center + direction_2d * 0.22,
                 width: 0.01,
                 color,
             });
+
+            if direction.w > -0.98 {
+                let font_size = 0.1;
+                let width = font.str_width(font_size, name);
+                font.draw_str(
+                    frame,
+                    &mut Vector2 {
+                        x: center.x + direction_2d.x * 0.2 - width * 0.5,
+                        y: center.y + direction_2d.y * 0.2
+                            - (font.line_height(font_size) - font.base(font_size)) * 0.5,
+                    },
+                    font_size,
+                    Vector4 {
+                        x: 1.0,
+                        y: 1.0,
+                        z: 1.0,
+                        w: 1.0,
+                    },
+                    name,
+                );
+            }
         }
     }
 }

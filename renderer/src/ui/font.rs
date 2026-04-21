@@ -109,12 +109,12 @@ impl Font {
         }
     }
 
-    pub fn line_height(&self) -> f32 {
-        self.line_height
+    pub fn line_height(&self, char_height: f32) -> f32 {
+        self.line_height * char_height
     }
 
-    pub fn base(&self) -> f32 {
-        self.base
+    pub fn base(&self, char_height: f32) -> f32 {
+        self.base * char_height
     }
 
     pub fn draw_char(
@@ -159,5 +159,16 @@ impl Font {
         for c in s.chars() {
             self.draw_char(frame, cursor, char_height, color, c);
         }
+    }
+
+    pub fn str_width(&self, char_height: f32, s: &str) -> f32 {
+        let mut width = 0.0;
+        for c in s.chars() {
+            let Some(c) = self.characters.get(&c) else {
+                continue;
+            };
+            width += c.advance * char_height;
+        }
+        width
     }
 }

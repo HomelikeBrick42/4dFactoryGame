@@ -56,9 +56,9 @@ Optional<Hit> hit_ground(Ray ray, Optional<int3> hovered_tile)
     }
 
     if ((tile.x + tile.y + tile.z) % 2 == 0)
-        hit.color = float3(0.5);
+        hit.color = float3(0.3, 0.5, 0.4);
     else
-        hit.color = float3(1.0);
+        hit.color = float3(0.3, 1.0, 0.4);
     return hit;
 }
 
