@@ -245,18 +245,18 @@ impl Renderer {
 pub struct Frame<'ui> {
     ui: &'ui mut Renderer,
     aspect: f32,
-    quads: Vec<Quad>,
+    quads: Vec<GpuQuad>,
     circles: Vec<GpuCircle>,
     lines: Vec<GpuLine>,
     layers: Vec<Layer>,
 }
 
 impl Frame<'_> {
-    pub fn push_quad(&mut self, quad: Quad, texture: Option<&Texture>) {
+    pub fn push_quad(&mut self, quad: Quad<'_>) {
         let start_index = self.quads.len();
-        self.quads.push(quad);
+        self.quads.push(GpuQuad::from(quad));
 
-        let texture = texture.unwrap_or(&self.ui.white_texture);
+        let texture = quad.texture.unwrap_or(&self.ui.white_texture);
         if let Some(Layer::Quad {
             start_index: _,
             end_index,
@@ -271,6 +271,14 @@ impl Frame<'_> {
                 end_index: self.quads.len() as _,
                 texture_bind_group: texture.sampler_bind_group().clone(),
             });
+        }
+    }
+
+    pub fn push_quads<'a>(&mut self, quads: impl IntoIterator<Item = Quad<'a>>) {
+        let quads = quads.into_iter();
+        self.quads.reserve(quads.size_hint().0);
+        for quad in quads {
+            self.push_quad(quad);
         }
     }
 
@@ -292,6 +300,14 @@ impl Frame<'_> {
         }
     }
 
+    pub fn push_circles(&mut self, circles: impl IntoIterator<Item = Circle>) {
+        let circles = circles.into_iter();
+        self.circles.reserve(circles.size_hint().0);
+        for circle in circles {
+            self.push_circle(circle);
+        }
+    }
+
     pub fn push_line(&mut self, line: Line) {
         let start_index = self.lines.len();
         self.lines.push(GpuLine::from(line));
@@ -307,6 +323,14 @@ impl Frame<'_> {
                 start_index: start_index as _,
                 end_index: self.lines.len() as _,
             });
+        }
+    }
+
+    pub fn push_lines(&mut self, lines: impl IntoIterator<Item = Line>) {
+        let lines = lines.into_iter();
+        self.lines.reserve(lines.size_hint().0);
+        for line in lines {
+            self.push_line(line);
         }
     }
 
@@ -394,7 +418,7 @@ impl Frame<'_> {
 fn quad_buffer(device: &wgpu::Device, length: usize) -> wgpu::Buffer {
     device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Quad Buffer"),
-        size: (length.max(1) * size_of::<Quad>()) as _,
+        size: (length.max(1) * size_of::<GpuQuad>()) as _,
         usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     })
@@ -456,14 +480,45 @@ struct GpuObjectsInfo {
     aspect: f32,
 }
 
-#[derive(Debug, Clone, Copy, NoUninit)]
-#[repr(C)]
-pub struct Quad {
+#[derive(Clone, Copy)]
+pub struct Quad<'a> {
     pub position: Vector2<f32>,
     pub size: Vector2<f32>,
     pub uv_offset: Vector2<f32>,
     pub uv_size: Vector2<f32>,
     pub color: Vector4<f32>,
+    pub texture: Option<&'a Texture>,
+}
+
+#[derive(Clone, Copy, NoUninit)]
+#[repr(C)]
+struct GpuQuad {
+    position: Vector2<f32>,
+    size: Vector2<f32>,
+    uv_offset: Vector2<f32>,
+    uv_size: Vector2<f32>,
+    color: Vector4<f32>,
+}
+
+impl From<Quad<'_>> for GpuQuad {
+    fn from(
+        Quad {
+            position,
+            size,
+            uv_offset,
+            uv_size,
+            color,
+            texture: _,
+        }: Quad<'_>,
+    ) -> Self {
+        Self {
+            position,
+            size,
+            uv_offset,
+            uv_size,
+            color,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -475,11 +530,11 @@ pub struct Circle {
 
 #[derive(Clone, Copy, NoUninit)]
 #[repr(C)]
-pub struct GpuCircle {
-    pub position: Vector2<f32>,
-    pub radius: f32,
-    pub _padding: f32,
-    pub color: Vector4<f32>,
+struct GpuCircle {
+    position: Vector2<f32>,
+    radius: f32,
+    _padding: f32,
+    color: Vector4<f32>,
 }
 
 impl From<Circle> for GpuCircle {
@@ -509,12 +564,12 @@ pub struct Line {
 
 #[derive(Clone, Copy, NoUninit)]
 #[repr(C)]
-pub struct GpuLine {
-    pub a: Vector2<f32>,
-    pub b: Vector2<f32>,
-    pub _padding: Vector3<f32>,
-    pub width: f32,
-    pub color: Vector4<f32>,
+struct GpuLine {
+    a: Vector2<f32>,
+    b: Vector2<f32>,
+    _padding: Vector3<f32>,
+    width: f32,
+    color: Vector4<f32>,
 }
 
 impl From<Line> for GpuLine {

@@ -1,7 +1,4 @@
-use crate::{
-    texture::Texture,
-    ui::{Frame, Quad},
-};
+use crate::{texture::Texture, ui::Quad};
 use math::{Vector2, Vector4};
 use std::collections::HashMap;
 
@@ -117,48 +114,41 @@ impl Font {
         self.base * char_height
     }
 
-    pub fn draw_char(
+    pub fn char_quad(
         &self,
-        frame: &mut Frame<'_>,
         cursor: &mut Vector2<f32>,
         char_height: f32,
         color: Vector4<f32>,
         c: char,
-    ) {
-        let Some(c) = self.characters.get(&c) else {
-            return;
+    ) -> Option<Quad<'_>> {
+        let c = self.characters.get(&c)?;
+        let quad = Quad {
+            position: *cursor
+                + Vector2 {
+                    x: 0.0,
+                    y: self.base * char_height,
+                }
+                + c.offset * char_height
+                + c.size * char_height * 0.5,
+            size: c.size * char_height,
+            uv_offset: c.uv_offset,
+            uv_size: c.uv_size,
+            color,
+            texture: self.images.get(c.image),
         };
-
-        frame.push_quad(
-            Quad {
-                position: *cursor
-                    + Vector2 {
-                        x: 0.0,
-                        y: self.base * char_height,
-                    }
-                    + c.offset * char_height
-                    + c.size * char_height * 0.5,
-                size: c.size * char_height,
-                uv_offset: c.uv_offset,
-                uv_size: c.uv_size,
-                color,
-            },
-            self.images.get(c.image),
-        );
         cursor.x += c.advance * char_height;
+        Some(quad)
     }
 
-    pub fn draw_str(
+    pub fn str_quads(
         &self,
-        frame: &mut Frame<'_>,
         cursor: &mut Vector2<f32>,
         char_height: f32,
         color: Vector4<f32>,
         s: &str,
-    ) {
-        for c in s.chars() {
-            self.draw_char(frame, cursor, char_height, color, c);
-        }
+    ) -> impl Iterator<Item = Quad<'_>> {
+        s.chars()
+            .filter_map(move |c| self.char_quad(cursor, char_height, color, c))
     }
 
     pub fn str_width(&self, char_height: f32, s: &str) -> f32 {

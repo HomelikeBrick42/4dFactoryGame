@@ -202,24 +202,22 @@ impl App for Game {
 
         let aspect = width as f32 / height as f32;
         let mut frame = self.ui.begin_frame(aspect);
-        frame.push_quad(
-            Quad {
-                position: Vector2 { x: 0.0, y: 0.0 },
-                size: Vector2 {
-                    x: aspect * 2.0,
-                    y: 2.0,
-                },
-                uv_offset: Vector2 { x: 0.0, y: 0.0 },
-                uv_size: Vector2 { x: 1.0, y: 1.0 },
-                color: Vector4 {
-                    x: 1.0,
-                    y: 1.0,
-                    z: 1.0,
-                    w: 1.0,
-                },
+        frame.push_quad(Quad {
+            position: Vector2 { x: 0.0, y: 0.0 },
+            size: Vector2 {
+                x: aspect * 2.0,
+                y: 2.0,
             },
-            Some(&self.main_texture),
-        );
+            uv_offset: Vector2 { x: 0.0, y: 0.0 },
+            uv_size: Vector2 { x: 1.0, y: 1.0 },
+            color: Vector4 {
+                x: 1.0,
+                y: 1.0,
+                z: 1.0,
+                w: 1.0,
+            },
+            texture: Some(&self.main_texture),
+        });
 
         Self::render_compass(
             &mut frame,
@@ -229,17 +227,20 @@ impl App for Game {
         );
 
         {
-            let font_size = 0.075;
+            let font_size = 0.06;
             let mut line = 0usize;
+            let mut max_width = 0.0f32;
+            let mut quads = vec![];
             let mut write_text = |s: &str| {
-                self.font.draw_str(
-                    &mut frame,
-                    &mut Vector2 {
-                        x: -aspect,
-                        y: 1.0
-                            - self.font.base(font_size)
-                            - line as f32 * self.font.line_height(font_size),
-                    },
+                let mut cursor = Vector2 {
+                    x: -aspect,
+                    y: 1.0
+                        - self.font.base(font_size)
+                        - line as f32 * self.font.line_height(font_size),
+                };
+                let start_cursor = cursor;
+                quads.extend(self.font.str_quads(
+                    &mut cursor,
                     font_size,
                     Vector4 {
                         x: 1.0,
@@ -248,8 +249,9 @@ impl App for Game {
                         w: 1.0,
                     },
                     s,
-                );
+                ));
                 line += 1;
+                max_width = max_width.max(cursor.x - start_cursor.x);
             };
 
             write_text(&format!("FPS: {:.1}", self.fps));
@@ -276,6 +278,27 @@ impl App for Game {
                 "Ana:     {:5.2}, {:5.2}, {:5.2}, {:5.2}",
                 ana.x, ana.y, ana.z, ana.w,
             ));
+
+            frame.push_quad(Quad {
+                position: Vector2 {
+                    x: -aspect + max_width * 0.5,
+                    y: 1.0 - line as f32 * self.font.line_height(font_size) * 0.5,
+                },
+                size: Vector2 {
+                    x: max_width,
+                    y: line as f32 * self.font.line_height(font_size),
+                },
+                uv_offset: Vector2 { x: 0.0, y: 0.0 },
+                uv_size: Vector2 { x: 1.0, y: 1.0 },
+                color: Vector4 {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0,
+                    w: 0.5,
+                },
+                texture: None,
+            });
+            frame.push_quads(quads);
         }
 
         |render_pass| {
@@ -430,8 +453,7 @@ impl Game {
             if direction.w > -0.98 {
                 let font_size = 0.075;
                 let width = font.str_width(font_size, name);
-                font.draw_str(
-                    frame,
+                frame.push_quads(font.str_quads(
                     &mut Vector2 {
                         x: center.x + direction_2d.x * 0.2 - width * 0.5,
                         y: center.y + direction_2d.y * 0.2
@@ -445,7 +467,7 @@ impl Game {
                         w: 1.0,
                     },
                     name,
-                );
+                ));
             }
         }
     }
