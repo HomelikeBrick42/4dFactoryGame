@@ -50,6 +50,8 @@ impl App for Game {
             fov: TAU * 0.25,
             ground_view: false,
             ground_view_percentage: 0.0,
+            screen_door_enabled: false,
+            screen_door_percentage: 0.05,
         };
 
         let ui = ui::Renderer::new(device.clone(), queue.clone());
@@ -99,7 +101,7 @@ impl App for Game {
             1,
             wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::TEXTURE_BINDING,
             wgpu::FilterMode::Linear,
-            wgpu::FilterMode::Linear,
+            wgpu::FilterMode::Nearest,
             None,
         );
 
@@ -181,10 +183,18 @@ impl App for Game {
 
     fn render<'a>(
         &'a mut self,
-        width: u32,
-        height: u32,
+        mut width: u32,
+        mut height: u32,
         encoder: &mut wgpu::CommandEncoder,
     ) -> impl FnOnce(&mut wgpu::RenderPass<'_>) + use<'a> {
+        let down_scaling = if self.camera.screen_door_enabled {
+            2
+        } else {
+            1
+        };
+        width /= down_scaling;
+        height /= down_scaling;
+
         if self.main_texture.width() != width && self.main_texture.height() != height {
             self.main_texture = Texture::new(
                 &self.device,
@@ -193,13 +203,17 @@ impl App for Game {
                 height,
                 wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::TEXTURE_BINDING,
                 wgpu::FilterMode::Linear,
-                wgpu::FilterMode::Linear,
+                wgpu::FilterMode::Nearest,
                 None,
             );
         }
         self.renderer
             .set_camera(self.camera.to_gpu(self.selected_tile));
-        self.renderer.render(&mut self.main_texture, encoder);
+        self.renderer.render(
+            &mut self.main_texture,
+            self.camera.screen_door_enabled,
+            encoder,
+        );
 
         let aspect = width as f32 / height as f32;
         let mut frame = self.ui.begin_frame(aspect);

@@ -12,6 +12,8 @@ pub struct Camera {
     pub fov: f32,
     pub ground_view: bool,
     pub ground_view_percentage: f32,
+    pub screen_door_enabled: bool,
+    pub screen_door_percentage: f32,
 }
 
 impl Camera {
@@ -26,6 +28,16 @@ impl Camera {
         if self.ground_view_percentage == 1.0 {
             self.xy_rotation = 0.0;
         }
+
+        let screen_door_speed = 0.2;
+        self.screen_door_enabled ^= input_state.key_just_pressed(KeyCode::KeyT);
+        if input_state.key_pressed(KeyCode::KeyY) {
+            self.screen_door_percentage += screen_door_speed * dt;
+        }
+        if input_state.key_pressed(KeyCode::KeyH) {
+            self.screen_door_percentage -= screen_door_speed * dt;
+        }
+        self.screen_door_percentage = self.screen_door_percentage.clamp(0.0, 1.0);
 
         let rotation = self.no_xy_rotation();
         let forward = rotation.x();
@@ -141,8 +153,10 @@ impl Camera {
             forward: rotation.x(),
             up: rotation.y(),
             right: rotation.z(),
+            ana: rotation.w(),
             hovered_tile,
             fov: self.fov,
+            screen_door_percentage: self.screen_door_percentage,
         }
     }
 }

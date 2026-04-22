@@ -13,8 +13,10 @@ pub struct Camera {
     pub forward: Vector4<f32>,
     pub up: Vector4<f32>,
     pub right: Vector4<f32>,
+    pub ana: Vector4<f32>,
     pub fov: f32,
     pub hovered_tile: Option<Vector3<i32>>,
+    pub screen_door_percentage: f32,
 }
 
 #[derive(Clone, Copy, NoUninit)]
@@ -24,9 +26,11 @@ struct GpuCamera {
     forward: Vector4<f32>,
     up: Vector4<f32>,
     right: Vector4<f32>,
+    ana: Vector4<f32>,
     hovered_tile: Vector3<i32>,
     is_hovering: u32,
     fov: f32,
+    screen_door_percentage: f32,
 }
 
 impl From<Camera> for GpuCamera {
@@ -36,8 +40,10 @@ impl From<Camera> for GpuCamera {
             forward,
             up,
             right,
+            ana,
             fov,
             hovered_tile,
+            screen_door_percentage,
         }: Camera,
     ) -> Self {
         Self {
@@ -45,9 +51,11 @@ impl From<Camera> for GpuCamera {
             forward,
             up,
             right,
+            ana,
             hovered_tile: hovered_tile.unwrap_or(Vector3 { x: 0, y: 0, z: 0 }),
             is_hovering: hovered_tile.is_some() as _,
             fov,
+            screen_door_percentage,
         }
     }
 }
@@ -83,7 +91,8 @@ pub struct Renderer {
     should_recreate_objects_bind_group: bool,
     objects_bind_group: wgpu::BindGroup,
 
-    ray_tracing_pipeline: wgpu::ComputePipeline,
+    ray_tracing_slice_pipeline: wgpu::ComputePipeline,
+    ray_tracing_screen_door_pipeline: wgpu::ComputePipeline,
 }
 
 impl Renderer {
@@ -182,12 +191,21 @@ impl Renderer {
                 ],
                 immediate_size: 0,
             });
-        let ray_tracing_pipeline =
+        let ray_tracing_slice_pipeline =
             device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-                label: Some("Ray Tracing Pipeline"),
+                label: Some("Ray Tracing Slice Pipeline"),
                 layout: Some(&ray_tracing_pipeline_layout),
                 module: &ray_tracing_shader,
-                entry_point: Some("trace_rays"),
+                entry_point: Some("trace_slice_rays"),
+                compilation_options: Default::default(),
+                cache: None,
+            });
+        let ray_tracing_screen_door_pipeline =
+            device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some("Ray Tracing Screen Door Pipeline"),
+                layout: Some(&ray_tracing_pipeline_layout),
+                module: &ray_tracing_shader,
+                entry_point: Some("trace_screen_door_rays"),
                 compilation_options: Default::default(),
                 cache: None,
             });
@@ -205,7 +223,8 @@ impl Renderer {
             should_recreate_objects_bind_group: false,
             objects_bind_group,
 
-            ray_tracing_pipeline,
+            ray_tracing_slice_pipeline,
+            ray_tracing_screen_door_pipeline,
         }
     }
 
@@ -233,7 +252,12 @@ impl Renderer {
         self.hyperspheres.remove(&self.device, &self.queue, id);
     }
 
-    pub fn render(&mut self, texture: &mut Texture, encoder: &mut wgpu::CommandEncoder) {
+    pub fn render(
+        &mut self,
+        texture: &mut Texture,
+        screen_door_enabled: bool,
+        encoder: &mut wgpu::CommandEncoder,
+    ) {
         if self.should_recreate_objects_bind_group {
             self.should_recreate_objects_bind_group = false;
             self.objects_bind_group = objects_bind_group(
@@ -257,7 +281,11 @@ impl Renderer {
             timestamp_writes: None,
         });
 
-        compute_pass.set_pipeline(&self.ray_tracing_pipeline);
+        compute_pass.set_pipeline(if screen_door_enabled {
+            &self.ray_tracing_screen_door_pipeline
+        } else {
+            &self.ray_tracing_slice_pipeline
+        });
         compute_pass.set_bind_group(0, texture.write_storage_bind_group(), &[]);
         compute_pass.set_bind_group(1, &self.camera_bind_group, &[]);
         compute_pass.set_bind_group(2, &self.objects_bind_group, &[]);
