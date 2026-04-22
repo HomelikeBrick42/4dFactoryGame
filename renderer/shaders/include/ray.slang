@@ -18,7 +18,7 @@ float3 skybox(float4 direction)
 {
     var color : float3;
 
-    if (direction.y > 0.0)
+    if (direction.y > -0.1)
         color = lerp(float3(0.4, 0.4, 0.6), float3(0.3, 0.3, 1.0), direction.y);
     else
         color = lerp(float3(0.4, 0.4, 0.4), float3(0.2, 0.2, 0.2), -direction.y);
