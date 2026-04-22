@@ -7,7 +7,7 @@ use renderer::{
     texture::Texture,
     ui::{self, Circle, Font, Line, Quad},
 };
-use std::{collections::VecDeque, f32::consts::TAU, time::Duration};
+use std::{collections::HashMap, f32::consts::TAU, time::Duration};
 
 pub mod camera;
 
@@ -25,7 +25,7 @@ pub struct Game {
     renderer: Renderer,
     main_texture: Texture,
 
-    last_spawned: VecDeque<Id<Hypersphere>>,
+    hyperspheres: HashMap<Vector3<i32>, Id<Hypersphere>>,
 }
 
 impl App for Game {
@@ -117,7 +117,7 @@ impl App for Game {
             renderer,
             main_texture,
 
-            last_spawned: VecDeque::new(),
+            hyperspheres: HashMap::new(),
         }
     }
 
@@ -148,28 +148,33 @@ impl App for Game {
             None
         };
 
-        if let Some(selected_tile) = self.selected_tile
-            && input_state.mouse_button_just_pressed(MouseButton::Left)
-        {
-            self.last_spawned
-                .push_back(self.renderer.add_hypersphere(Hypersphere {
-                    position: Vector4 {
-                        x: selected_tile.x as f32 + 0.5,
-                        y: 0.5,
-                        z: selected_tile.y as f32 + 0.5,
-                        w: selected_tile.z as f32 + 0.5,
-                    },
-                    color: Vector3 {
-                        x: rand::random(),
-                        y: rand::random(),
-                        z: rand::random(),
-                    },
-                    radius: 0.5,
-                }));
+        if let Some(selected_tile) = self.selected_tile {
+            if input_state.mouse_button_just_pressed(MouseButton::Left)
+                && let Some(old_hypersphere) = self.hyperspheres.insert(
+                    selected_tile,
+                    self.renderer.add_hypersphere(Hypersphere {
+                        position: Vector4 {
+                            x: selected_tile.x as f32 + 0.5,
+                            y: 0.5,
+                            z: selected_tile.y as f32 + 0.5,
+                            w: selected_tile.z as f32 + 0.5,
+                        },
+                        color: Vector3 {
+                            x: rand::random(),
+                            y: rand::random(),
+                            z: rand::random(),
+                        },
+                        radius: 0.5,
+                    }),
+                )
+            {
+                self.renderer.remove_hypersphere(old_hypersphere);
+            }
 
-            if self.last_spawned.len() > 3 {
-                self.renderer
-                    .remove_hypersphere(self.last_spawned.pop_front().unwrap());
+            if input_state.mouse_button_just_pressed(MouseButton::Right)
+                && let Some(hypersphere) = self.hyperspheres.remove(&selected_tile)
+            {
+                self.renderer.remove_hypersphere(hypersphere);
             }
         }
     }

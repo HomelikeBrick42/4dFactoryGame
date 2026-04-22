@@ -90,7 +90,7 @@ impl<T: StorageElement> Storage<T> {
 
     pub fn remove(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, id: Id<T>) {
         assert!(
-            id.0 < self.len,
+            self.indices[id.0] < self.len,
             "invalid id, {} was >= than {}",
             id.0,
             self.len
@@ -130,7 +130,7 @@ impl<T: StorageElement> Storage<T> {
 
     pub fn update(&mut self, queue: &wgpu::Queue, id: Id<T>, value: T) {
         assert!(
-            id.0 < self.len,
+            self.indices[id.0] < self.len,
             "invalid id, {} was >= than {}",
             id.0,
             self.len
