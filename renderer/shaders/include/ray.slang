@@ -33,6 +33,8 @@ Optional<Hit> hit_ground(Ray ray, Optional<int3> hovered_tile)
 {
     var hit : Hit;
 
+    if (abs(ray.direction.y) < 0.0001)
+        return none;
     hit.distance = ray.origin.y / -ray.direction.y;
     if (hit.distance <= 0.0)
         return none;
@@ -157,8 +159,12 @@ Optional<Hit> hit_tetrahedron(Ray ray, Tetrahedron tetrahedron)
         tetrahedron.c - tetrahedron.a,
         tetrahedron.d - tetrahedron.a);
 
+    let denom = -dot(hyperplane, ray.direction);
+    if (abs(denom) < 0.0001)
+        return none;
+
     var hit : Hit;
-    hit.distance = dot(hyperplane, ray.origin - tetrahedron.a) / -dot(hyperplane, ray.direction);
+    hit.distance = dot(hyperplane, ray.origin - tetrahedron.a) / denom;
     if (hit.distance <= 0.0)
         return none;
 
