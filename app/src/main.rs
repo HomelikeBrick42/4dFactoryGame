@@ -20,7 +20,6 @@ pub struct Game {
 
     ui: ui::Renderer,
     font: Font,
-    fps: f32,
     frame_time: f32,
 
     renderer: Renderer,
@@ -49,6 +48,8 @@ impl App for Game {
             base_rotation: NoE2Rotor::identity(),
             xy_rotation: 0.0,
             fov: TAU * 0.25,
+            ground_view: false,
+            ground_view_percentage: 0.0,
         };
 
         let ui = ui::Renderer::new(device.clone(), queue.clone());
@@ -111,7 +112,6 @@ impl App for Game {
 
             ui,
             font,
-            fps: 0.0,
             frame_time: 0.0,
 
             renderer,
@@ -124,11 +124,7 @@ impl App for Game {
     fn fixed_update(&mut self, #[expect(unused)] ts: f32) {}
 
     fn update(&mut self, width: u32, height: u32, input_state: &InputState, dt: f32) {
-        if dt != 0.0 {
-            let current_fps = 1.0 / dt;
-            self.fps += (current_fps - self.fps) * ((2.0 * dt).exp() - 1.0);
-            self.frame_time += (dt - self.frame_time) * ((2.0 * dt).exp() - 1.0);
-        }
+        self.frame_time += (dt - self.frame_time) * ((4.0 * dt).exp() - 1.0);
 
         self.camera.update(input_state, dt);
 
@@ -254,7 +250,7 @@ impl App for Game {
                 max_width = max_width.max(cursor.x - start_cursor.x);
             };
 
-            write_text(&format!("FPS: {:.1}", self.fps));
+            write_text(&format!("FPS: {:.1}", 1.0 / self.frame_time));
             write_text(&format!("Frame Time: {:.3}ms", self.frame_time * 1000.0));
             write_text(&format!(
                 "Position: {:.2}, {:.2}, {:.2}, {:.2}",
@@ -263,17 +259,23 @@ impl App for Game {
                 self.camera.position.z,
                 self.camera.position.w,
             ));
-            let forward = self.camera.base_rotation.x();
+            let rotation = self.camera.rotation();
+            let forward = rotation.x();
             write_text(&format!(
                 "Forward: {:5.2}, {:5.2}, {:5.2}, {:5.2}",
                 forward.x, forward.y, forward.z, forward.w,
             ));
-            let right = self.camera.base_rotation.z();
+            let up = rotation.y();
+            write_text(&format!(
+                "Up:      {:5.2}, {:5.2}, {:5.2}, {:5.2}",
+                up.x, up.y, up.z, up.w,
+            ));
+            let right = rotation.z();
             write_text(&format!(
                 "Right:   {:5.2}, {:5.2}, {:5.2}, {:5.2}",
                 right.x, right.y, right.z, right.w,
             ));
-            let ana = self.camera.base_rotation.w();
+            let ana = rotation.w();
             write_text(&format!(
                 "Ana:     {:5.2}, {:5.2}, {:5.2}, {:5.2}",
                 ana.x, ana.y, ana.z, ana.w,

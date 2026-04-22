@@ -10,14 +10,28 @@ pub struct Camera {
     pub base_rotation: NoE2Rotor,
     pub xy_rotation: f32,
     pub fov: f32,
+    pub ground_view: bool,
+    pub ground_view_percentage: f32,
 }
 
 impl Camera {
     pub fn update(&mut self, input_state: &InputState, dt: f32) {
-        let forward = self.base_rotation.x();
-        let up = self.base_rotation.y();
-        let right = self.base_rotation.z();
-        let ana = self.base_rotation.w();
+        self.ground_view ^= input_state.key_just_pressed(KeyCode::KeyG);
+        if self.ground_view {
+            self.ground_view_percentage += dt;
+        } else {
+            self.ground_view_percentage -= dt;
+        }
+        self.ground_view_percentage = self.ground_view_percentage.clamp(0.0, 1.0);
+        if self.ground_view_percentage == 1.0 {
+            self.xy_rotation = 0.0;
+        }
+
+        let rotation = self.no_xy_rotation();
+        let forward = rotation.x();
+        let up = rotation.y();
+        let right = rotation.z();
+        let ana = rotation.w();
 
         let move_speed = 4.0;
         let rotation_speed = TAU * 0.25;
@@ -91,8 +105,15 @@ impl Camera {
         self.xy_rotation %= TAU;
     }
 
+    pub fn no_xy_rotation(&self) -> Rotor {
+        Rotor::from_no_e2_rotor(self.base_rotation)
+            .then(Rotor::rotate_yw(0.25 * TAU * self.ground_view_percentage))
+    }
+
     pub fn rotation(&self) -> Rotor {
-        Rotor::from_no_e2_rotor(self.base_rotation).then(Rotor::rotate_xy(self.xy_rotation))
+        self.no_xy_rotation().then(Rotor::rotate_xy(
+            self.xy_rotation * (1.0 - self.ground_view_percentage),
+        ))
     }
 
     pub fn get_ray(&self, mouse_position: Vector2<f32>, width: u32, height: u32) -> Ray {
