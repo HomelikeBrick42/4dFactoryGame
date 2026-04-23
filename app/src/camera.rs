@@ -31,13 +31,15 @@ impl Camera {
 
         let screen_door_speed = 0.2;
         self.screen_door_enabled ^= input_state.key_just_pressed(KeyCode::KeyT);
-        if input_state.key_pressed(KeyCode::KeyY) {
-            self.screen_door_percentage += screen_door_speed * dt;
+        if self.screen_door_enabled {
+            if input_state.key_pressed(KeyCode::KeyY) {
+                self.screen_door_percentage += screen_door_speed * dt;
+            }
+            if input_state.key_pressed(KeyCode::KeyH) {
+                self.screen_door_percentage -= screen_door_speed * dt;
+            }
+            self.screen_door_percentage = self.screen_door_percentage.clamp(0.0, 1.0);
         }
-        if input_state.key_pressed(KeyCode::KeyH) {
-            self.screen_door_percentage -= screen_door_speed * dt;
-        }
-        self.screen_door_percentage = self.screen_door_percentage.clamp(0.0, 1.0);
 
         let rotation = self.no_xy_rotation();
         let forward = rotation.x();

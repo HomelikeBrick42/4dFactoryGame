@@ -299,6 +299,12 @@ impl App for Game {
                 "Ana:     {:5.2}, {:5.2}, {:5.2}, {:5.2}",
                 ana.x, ana.y, ana.z, ana.w,
             ));
+            if self.camera.screen_door_enabled {
+                write_text(&format!(
+                    "Screen Door Percentage: {:.2}",
+                    self.camera.screen_door_percentage,
+                ));
+            }
 
             frame.push_quad(Quad {
                 position: Vector2 {
